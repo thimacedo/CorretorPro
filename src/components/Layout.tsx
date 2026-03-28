@@ -64,7 +64,7 @@ function ConnectionStatus() {
 }
 
 export default function Layout() {
-  const { user, signOut } = useAuth();
+  const { user, profile, organization, signOut } = useAuth();
 
   return (
     <div className="min-h-screen bg-zinc-50 flex">
@@ -99,10 +99,10 @@ export default function Layout() {
           <div className="flex items-center justify-between">
             <div className="flex items-center overflow-hidden">
               <div className="w-8 h-8 rounded-full bg-zinc-700 flex items-center justify-center text-white font-medium shrink-0">
-                {user?.email?.charAt(0).toUpperCase() || 'U'}
+                {profile?.full_name?.charAt(0).toUpperCase() || user?.email?.charAt(0).toUpperCase() || 'U'}
               </div>
               <div className="ml-3 truncate">
-                <p className="text-sm font-medium text-white truncate">{user?.user_metadata?.full_name || 'Corretor'}</p>
+                <p className="text-sm font-medium text-white truncate">{profile?.full_name || user?.user_metadata?.full_name || 'Corretor'}</p>
                 <p className="text-xs text-zinc-500 truncate">{user?.email}</p>
               </div>
             </div>
@@ -137,10 +137,10 @@ export default function Layout() {
           <div className="flex items-center space-x-6">
             <ConnectionStatus />
 
-            {/* Tenant Selector Mock */}
+            {/* Tenant Selector */}
             <button className="flex items-center text-sm font-medium text-zinc-700 hover:text-zinc-900 transition-colors">
               <span className="w-2 h-2 rounded-full bg-emerald-500 mr-2"></span>
-              Imobiliária Alpha
+              {organization?.name || 'Carregando...'}
               <ChevronDown className="w-4 h-4 ml-1 text-zinc-400" />
             </button>
 
