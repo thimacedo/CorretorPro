@@ -1,0 +1,132 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function getUserData() {
+      let path = /databases/$(database)/documents/users/$(request.auth.uid);
+      return exists(path) ? get(path).data : null;
+    }
+    
+    function isAdmin() {
+      let data = getUserData();
+      return isAuthenticated() && (
+        (data != null && data.role == 'master_admin') ||
+        (request.auth.token.email == "thi.macedo@gmail.com" && request.auth.token.email_verified == true)
+      );
+    }
+
+    function isManager() {
+      let data = getUserData();
+      return isAuthenticated() && (
+        isAdmin() || (data != null && (data.role == 'manager' || data.role == 'admin'))
+      );
+    }
+    
+    function belongsToOrg(orgId) {
+      let data = getUserData();
+      return isAuthenticated() && data != null && data.tenant_id == orgId;
+    }
+
+    // ===============================================================
+    // Collections
+    // ===============================================================
+
+    // Users
+    match /users/{userId} {
+      // Allow users to read their own profile, or managers of the same org to read it
+      allow read: if isAuthenticated() && (
+        request.auth.uid == userId || 
+        belongsToOrg(resource.data.tenant_id) ||
+        isAdmin()
+      );
+      
+      // Allow querying users by email for registration lookup
+      // Restricted to authenticated users to find their own pre-created record
+      allow list: if isAuthenticated();
+
+      // Allow creation ONLY by managers/admins OR if the user is the superuser
+      // OR if the user is creating their own record AND it matches a pre-existing "pending" record by email
+      allow create: if isAuthenticated() && (
+        isManager() || 
+        request.auth.uid == userId ||
+        request.auth.token.email == "thi.macedo@gmail.com"
+      );
+      
+      // Allow updates by the user themselves or a manager
+      allow update: if isAuthenticated() && (
+        request.auth.uid == userId || 
+        isManager()
+      );
+
+      // Allow deleting pending users (when claiming an invite)
+      allow delete: if isAuthenticated() && (
+        isManager() || 
+        (resource != null && resource.data.email == request.auth.token.email)
+      );
+    }
+
+    // Organizations
+    match /organizations/{orgId} {
+      allow read: if isAuthenticated() && (
+        belongsToOrg(orgId) || 
+        isAdmin()
+      );
+      
+      allow list: if isAuthenticated() && isManager();
+
+      // Only managers/admins or the superuser can create organizations
+      allow create: if isAuthenticated() && (
+        isManager() || 
+        request.auth.token.email == "thi.macedo@gmail.com"
+      );
+      
+      allow update: if belongsToOrg(orgId) && isManager();
+    }
+
+    // Properties
+    match /properties/{propId} {
+      allow read: if isAuthenticated() && belongsToOrg(resource.data.organization_id);
+      allow create: if isAuthenticated() && belongsToOrg(request.resource.data.organization_id) && isManager();
+      allow update: if isAuthenticated() && belongsToOrg(resource.data.organization_id) && isManager();
+      allow delete: if isAuthenticated() && belongsToOrg(resource.data.organization_id) && isManager();
+    }
+
+    // Leads
+    match /leads/{leadId} {
+      allow read: if isAuthenticated() && belongsToOrg(resource.data.organization_id) && (isManager() || resource.data.assigned_broker_id == request.auth.uid);
+      allow create: if isAuthenticated() && belongsToOrg(request.resource.data.organization_id) && (isManager() || request.resource.data.assigned_broker_id == request.auth.uid);
+      allow update: if isAuthenticated() && belongsToOrg(resource.data.organization_id) && (isManager() || resource.data.assigned_broker_id == request.auth.uid);
+      allow delete: if isAuthenticated() && belongsToOrg(resource.data.organization_id) && (isManager() || resource.data.assigned_broker_id == request.auth.uid);
+    }
+
+    // Opportunities
+    match /opportunities/{oppId} {
+      allow read: if isAuthenticated() && belongsToOrg(resource.data.organization_id) && (isManager() || get(/databases/$(database)/documents/leads/$(resource.data.lead_id)).data.assigned_broker_id == request.auth.uid);
+      allow create: if isAuthenticated() && belongsToOrg(request.resource.data.organization_id) && (isManager() || get(/databases/$(database)/documents/leads/$(request.resource.data.lead_id)).data.assigned_broker_id == request.auth.uid);
+      allow update: if isAuthenticated() && belongsToOrg(resource.data.organization_id) && (isManager() || get(/databases/$(database)/documents/leads/$(resource.data.lead_id)).data.assigned_broker_id == request.auth.uid);
+      allow delete: if isAuthenticated() && belongsToOrg(resource.data.organization_id) && (isManager() || get(/databases/$(database)/documents/leads/$(resource.data.lead_id)).data.assigned_broker_id == request.auth.uid);
+    }
+
+    // Appointments
+    match /appointments/{apptId} {
+      allow read: if isAuthenticated() && belongsToOrg(resource.data.organization_id) && (isManager() || resource.data.assigned_to == request.auth.uid || resource.data.created_by == request.auth.uid);
+      allow create: if isAuthenticated() && belongsToOrg(request.resource.data.organization_id) && (isManager() || request.resource.data.assigned_to == request.auth.uid || request.resource.data.created_by == request.auth.uid);
+      allow update: if isAuthenticated() && belongsToOrg(resource.data.organization_id) && (isManager() || resource.data.assigned_to == request.auth.uid || resource.data.created_by == request.auth.uid);
+      allow delete: if isAuthenticated() && belongsToOrg(resource.data.organization_id) && (isManager() || resource.data.assigned_to == request.auth.uid || resource.data.created_by == request.auth.uid);
+    }
+
+    // Notifications
+    match /notifications/{notificationId} {
+      allow read: if isAuthenticated() && resource.data.user_id == request.auth.uid;
+      allow update: if isAuthenticated() && resource.data.user_id == request.auth.uid && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+      allow delete: if isAuthenticated() && resource.data.user_id == request.auth.uid;
+      allow create: if isAuthenticated() && request.resource.data.organization_id != null;
+    }
+  }
+}

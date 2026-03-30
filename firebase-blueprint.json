@@ -1,0 +1,107 @@
+{
+  "entities": {
+    "Organization": {
+      "title": "Organization",
+      "description": "A company or real estate agency using the platform.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "The name of the organization." },
+        "cnpj": { "type": "string", "description": "The CNPJ of the organization." },
+        "subscription_tier": { "type": "string", "description": "The subscription tier (e.g., free, pro)." },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name"]
+    },
+    "User": {
+      "title": "User",
+      "description": "A user of the platform.",
+      "type": "object",
+      "properties": {
+        "full_name": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "role": { "type": "string", "enum": ["master_admin", "manager", "broker", "read_only"] },
+        "tenant_id": { "type": "string", "description": "The ID of the organization this user belongs to." },
+        "manager_id": { "type": "string", "description": "The ID of the manager this user reports to." },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["full_name", "email", "role", "tenant_id"]
+    },
+    "Property": {
+      "title": "Property",
+      "description": "A real estate property listing.",
+      "type": "object",
+      "properties": {
+        "organization_id": { "type": "string" },
+        "title": { "type": "string" },
+        "listing_type": { "type": "string", "enum": ["venda", "locacao"] },
+        "property_type": { "type": "string" },
+        "price": { "type": "number" },
+        "bedrooms": { "type": "number" },
+        "area": { "type": "number" },
+        "image_url": { "type": "string" },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["organization_id", "title", "listing_type", "price"]
+    },
+    "Lead": {
+      "title": "Lead",
+      "description": "A potential customer.",
+      "type": "object",
+      "properties": {
+        "organization_id": { "type": "string" },
+        "first_name": { "type": "string" },
+        "last_name": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "phone": { "type": "string" },
+        "interest_temperature": { "type": "string", "enum": ["frio", "morno", "quente"] },
+        "origin_source": { "type": "string" },
+        "assigned_broker_id": { "type": "string" },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["organization_id", "first_name", "last_name"]
+    },
+    "Opportunity": {
+      "title": "Opportunity",
+      "description": "A sales opportunity in the CRM pipeline.",
+      "type": "object",
+      "properties": {
+        "organization_id": { "type": "string" },
+        "lead_id": { "type": "string" },
+        "property_id": { "type": "string" },
+        "stage": { "type": "string", "enum": ["Prospeccao", "Visita", "Proposta", "Documentacao", "Fechamento"] },
+        "expected_revenue": { "type": "number" },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["organization_id", "lead_id", "stage"]
+    },
+    "Appointment": {
+      "title": "Appointment",
+      "description": "A scheduled event in the agenda.",
+      "type": "object",
+      "properties": {
+        "organization_id": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "start_time": { "type": "string", "format": "date-time" },
+        "end_time": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["scheduled", "completed", "cancelled"] },
+        "assigned_to": { "type": "string" },
+        "created_by": { "type": "string" },
+        "lead_id": { "type": "string" },
+        "property_id": { "type": "string" },
+        "result": { "type": "string" },
+        "notes": { "type": "string" },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["organization_id", "title", "start_time", "end_time", "assigned_to"]
+    }
+  },
+  "firestore": {
+    "organizations": { "schema": "Organization", "description": "Collection of organizations." },
+    "users": { "schema": "User", "description": "Collection of users." },
+    "properties": { "schema": "Property", "description": "Collection of properties." },
+    "leads": { "schema": "Lead", "description": "Collection of leads." },
+    "opportunities": { "schema": "Opportunity", "description": "Collection of opportunities." },
+    "appointments": { "schema": "Appointment", "description": "Collection of appointments." }
+  }
+}

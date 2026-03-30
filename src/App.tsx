@@ -10,6 +10,10 @@ import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
 import CRM from './pages/CRM';
 import Properties from './pages/Properties';
+import Agenda from './pages/Agenda';
+import Team from './pages/Team';
+import Settings from './pages/Settings';
+import Seed from './pages/Seed';
 import Login from './pages/Login';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -44,6 +48,10 @@ export default function App() {
             <Route index element={<Dashboard />} />
             <Route path="crm" element={<CRM />} />
             <Route path="properties" element={<Properties />} />
+            <Route path="agenda" element={<Agenda />} />
+            <Route path="team" element={<Team />} />
+            <Route path="settings" element={<Settings />} />
+            <Route path="seed" element={<Seed />} />
             <Route path="*" element={
               <div className="flex items-center justify-center h-full text-zinc-500">
                 Página em construção

@@ -18,7 +18,7 @@ DECLARE
 BEGIN
   -- Pega os dados do usuário autenticado no momento
   v_user_id := auth.uid();
-  v_email := auth.jwt() ->> 'email';
+  v_email := COALESCE(auth.jwt() ->> 'email', auth.email());
   v_full_name := COALESCE(auth.jwt() -> 'user_metadata' ->> 'full_name', auth.jwt() -> 'user_metadata' ->> 'name', 'Corretor');
 
   IF v_user_id IS NULL THEN
@@ -36,25 +36,33 @@ BEGIN
   WHERE user_id = v_user_id
   LIMIT 1;
 
-  -- Se não pertence a nenhuma, cria uma
+  -- Se não pertence a nenhuma, cria uma ou vincula à existente
   IF v_org_id IS NULL THEN
-    -- REGRA DE NEGÓCIO: Se for o thi.macedo@gmail.com, cria a Matriz como Master
+    -- REGRA DE NEGÓCIO: Se for o thi.macedo@gmail.com, tenta vincular à Matriz ou cria se não existir
     IF v_email = 'thi.macedo@gmail.com' THEN
-      INSERT INTO public.organizations (name, cnpj, subscription_tier)
-      VALUES ('CorretorPro Matriz', '00.000.000/0001-00', 'premium')
-      RETURNING id INTO v_org_id;
+      SELECT id INTO v_org_id FROM public.organizations WHERE cnpj = '00.000.000/0001-00' LIMIT 1;
+      
+      IF v_org_id IS NULL THEN
+        INSERT INTO public.organizations (name, cnpj, subscription_tier, slug)
+        VALUES ('CorretorPro Matriz', '00.000.000/0001-00', 'premium', 'corretorpro-matriz')
+        RETURNING id INTO v_org_id;
+      END IF;
       v_role := 'master_admin';
     ELSE
-      -- Para outros usuários que se cadastrarem, cria uma org isolada padrão
-      INSERT INTO public.organizations (name, cnpj, subscription_tier)
-      VALUES ('Imobiliária ' || v_full_name, '00.000.000/0002-00', 'free')
+      -- Para outros usuários, cria uma org isolada padrão
+      INSERT INTO public.organizations (name, cnpj, subscription_tier, slug)
+      VALUES ('Imobiliária ' || v_full_name, '00.000.000/0002-00', 'free', lower(regexp_replace(v_full_name, '[^a-zA-Z0-9]', '-', 'g')))
+      ON CONFLICT (cnpj) DO UPDATE SET 
+        name = EXCLUDED.name,
+        slug = COALESCE(public.organizations.slug, EXCLUDED.slug)
       RETURNING id INTO v_org_id;
       v_role := 'master_admin'; 
     END IF;
 
-    -- Vincula o usuário à nova organização
+    -- Vincula o usuário à organização (Garante que não duplique o vínculo)
     INSERT INTO public.organization_members (user_id, organization_id, role)
-    VALUES (v_user_id, v_org_id, v_role::org_role);
+    VALUES (v_user_id, v_org_id, v_role::org_role)
+    ON CONFLICT (user_id, organization_id) DO UPDATE SET role = EXCLUDED.role;
   END IF;
 
   RETURN jsonb_build_object('organization_id', v_org_id, 'role', v_role);
@@ -109,3 +117,20 @@ DROP POLICY IF EXISTS "Ver membros da equipe" ON organization_members;
 CREATE POLICY "Ver membros da equipe" ON organization_members
   FOR SELECT
   USING (organization_id IN (SELECT organization_id FROM organization_members WHERE user_id = auth.uid()));
+
+-- Usuários (Permite que o usuário gerencie o próprio perfil)
+DROP POLICY IF EXISTS "Usuários gerenciam próprio perfil" ON users;
+CREATE POLICY "Usuários gerenciam próprio perfil" ON users
+  FOR ALL
+  USING (id = auth.uid());
+
+-- Organizações (Permite que admins atualizem os dados da imobiliária)
+DROP POLICY IF EXISTS "Admins gerenciam organização" ON organizations;
+CREATE POLICY "Admins gerenciam organização" ON organizations
+  FOR ALL
+  USING (
+    id IN (
+      SELECT organization_id FROM organization_members 
+      WHERE user_id = auth.uid() AND role IN ('master_admin', 'manager')
+    )
+  );
