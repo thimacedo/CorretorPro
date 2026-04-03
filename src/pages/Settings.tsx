@@ -4,6 +4,7 @@ import {
   Building2, 
   Shield, 
   Bell, 
+  Smartphone,
   Save, 
   LogOut,
   Camera,
@@ -20,7 +21,33 @@ import { cn } from '../lib/utils';
 export default function Settings() {
   const { user, profile, organization, signOut } = useAuth();
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'profile' | 'organization' | 'notifications'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'organization' | 'notifications' | 'app'>('profile');
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [isInstallable, setIsInstallable] = useState(false);
+
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      setIsInstallable(true);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    };
+  }, []);
+
+  const handleInstallApp = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setIsInstallable(false);
+    }
+    setDeferredPrompt(null);
+  };
   
   // Profile state
   const [profileData, setProfileData] = useState({
@@ -166,6 +193,17 @@ export default function Settings() {
           >
             <Bell className="w-4 h-4 mr-3" />
             Notificações
+          </button>
+
+          <button 
+            onClick={() => setActiveTab('app')}
+            className={cn(
+              "w-full flex items-center px-4 py-3 text-sm font-medium rounded-xl transition-all",
+              activeTab === 'app' ? "bg-white text-emerald-600 shadow-sm border border-zinc-200" : "text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100"
+            )}
+          >
+            <Smartphone className="w-4 h-4 mr-3" />
+            Aplicativo
           </button>
 
           <div className="pt-4 mt-4 border-t border-zinc-200">
@@ -380,6 +418,59 @@ export default function Settings() {
                   </button>
                 </div>
               </form>
+            )}
+
+            {activeTab === 'app' && (
+              <div className="p-6 space-y-8">
+                <div>
+                  <h2 className="text-lg font-semibold text-zinc-900">Encapsulamento do App</h2>
+                  <p className="text-sm text-zinc-500">Transforme o CorretorPro em um aplicativo nativo no seu dispositivo.</p>
+                </div>
+
+                <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-6">
+                  <div className="flex items-start gap-4">
+                    <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center text-emerald-600 shadow-sm shrink-0">
+                      <Smartphone className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-emerald-900">Instalar CorretorPro</h3>
+                      <p className="text-sm text-emerald-700 mt-1 leading-relaxed">
+                        Ao instalar, o CorretorPro aparecerá na sua tela inicial com um ícone próprio, funcionará em tela cheia e terá um acesso muito mais rápido.
+                      </p>
+                      
+                      <div className="mt-6">
+                        {isInstallable ? (
+                          <button 
+                            onClick={handleInstallApp}
+                            className="px-6 py-2.5 bg-emerald-600 text-white text-sm font-bold rounded-xl hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-600/20 active:scale-95"
+                          >
+                            Instalar Agora
+                          </button>
+                        ) : (
+                          <div className="inline-flex items-center px-4 py-2 bg-zinc-100 text-zinc-600 text-xs font-medium rounded-lg border border-zinc-200">
+                            <Shield className="w-3.5 h-3.5 mr-2" />
+                            O app já está instalado ou seu navegador não suporta a instalação direta.
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <h4 className="text-sm font-bold text-zinc-900">Como instalar manualmente:</h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="p-4 border border-zinc-100 rounded-xl bg-zinc-50">
+                      <p className="text-xs font-bold text-zinc-400 uppercase mb-2">iOS (iPhone/iPad)</p>
+                      <p className="text-sm text-zinc-600">Clique no ícone de <strong>Compartilhar</strong> no Safari e selecione <strong>"Adicionar à Tela de Início"</strong>.</p>
+                    </div>
+                    <div className="p-4 border border-zinc-100 rounded-xl bg-zinc-50">
+                      <p className="text-xs font-bold text-zinc-400 uppercase mb-2">Android / Chrome</p>
+                      <p className="text-sm text-zinc-600">Clique nos <strong>três pontos</strong> no canto superior e selecione <strong>"Instalar aplicativo"</strong>.</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
             )}
           </div>
         </div>
